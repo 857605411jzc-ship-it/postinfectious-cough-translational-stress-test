@@ -11,11 +11,17 @@ from matplotlib import font_manager
 from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 from matplotlib.patches import FancyArrowPatch, Rectangle, Patch
 from matplotlib.lines import Line2D
-OUT = Path('output/figures')
-TABLES = Path('output/tables')
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT / 'output/figures'
+TABLES = ROOT / 'output/tables'
 C = {'navy': '#24485C', 'teal': '#2C7C87', 'copper': '#C07852', 'purple': '#8C7AA7', 'sage': '#8B9D77', 'gray': '#5F6570', 'pale': '#E8EDF0', 'ink': '#1E2930'}
 
 def setup():
+    for path in font_manager.findSystemFonts(fontext='ttf'):
+        try:
+            font_manager.fontManager.addfont(path)
+        except RuntimeError:
+            continue
     for path in Path('assets/fonts').glob('*'):
         if path.suffix.lower() == '.ttf':
             font_manager.fontManager.addfont(str(path))
@@ -37,155 +43,47 @@ def save(fig, stem):
     fig.savefig(OUT / f'{stem}_preview.png', dpi=150, bbox_inches='tight', pad_inches=0.18)
     plt.close(fig)
 
+def figure_s1():
+    fig = plt.figure(figsize=(12, 8.4))
+    gs = fig.add_gridspec(2, 2, left=.08, right=.97, bottom=.09, top=.94, hspace=.48, wspace=.35)
+    ax = fig.add_subplot(gs[0, 0])
+    label(ax, 'A', 'Public phenotype availability')
+    labels = ['INCOV and MY-LC', 'Airway sources', 'Blood annotation', 'Other molecular releases']
+    values = [2, 3, 1, 5]
+    ax.barh(range(4), values, color=[C['teal'], C['navy'], C['copper'], '#AAB3B7'], height=.55)
+    ax.set_yticks(range(4), labels); ax.invert_yaxis()
+    ax.set_xlim(0, 6); ax.set_xticks(range(7)); ax.set_xlabel('Public data sources examined')
+    for i, v in enumerate(values): ax.text(v+.12, i, str(v), va='center')
+    ax.text(0, -.29, 'Two sources linked explicit cough status, molecular data\nand all five model covariates (Table S1).', transform=ax.transAxes, fontsize=9.5)
+    ax = fig.add_subplot(gs[0, 1]); label(ax, 'B', 'Proteomic model populations')
+    ax.axis('off'); ax.set_xlim(0,1); ax.set_ylim(0,1)
+    for y, cohort, n, positive, negative, days, col in [( .77,'INCOV',105,26,79,'64.5 (53.3–92.0)',C['navy']),(.30,'MY-LC',97,24,73,'433.0 (404.0–463.0)',C['teal'])]:
+        ax.text(0,y,cohort,fontsize=14,fontweight='bold',color=col)
+        ax.text(.34,y,f'{n} participants',fontsize=14,fontweight='bold',color=col)
+        ax.text(.34,y-.12,f'{positive} cough / {negative} no cough',fontsize=11)
+        ax.text(.34,y-.24,f'{days} days',fontsize=10)
+    ax.text(0,-.05,'Timing is median (IQR) from documented symptom onset.\nOne eligible MY-LC participant lacked primary assays.',fontsize=9.3)
+    ax = fig.add_subplot(gs[1,0]); label(ax,'C','Five transcriptomic contrasts')
+    names=['Paired cultures','Longitudinal nasal','Radiological groups','Nasal pseudobulk','Blood annotation']
+    counts=[6,6,37,11,17]
+    ax.barh(range(5),counts,color=[C['navy'],C['teal'],C['teal'],C['copper'],C['gray']],height=.55)
+    ax.set_yticks(range(5),names);ax.invert_yaxis();ax.set_xlim(0,43);ax.set_xlabel('Independent donors within each contrast')
+    for i,v in enumerate(counts):ax.text(v+.5,i,str(v),va='center')
+    ax.text(0,-.26,'Longitudinal and radiological contrasts share GSE261777.\nThe two pseudobulk accessions represent one source study.',transform=ax.transAxes,fontsize=9.3)
+    ax=fig.add_subplot(gs[1,1]);label(ax,'D','Simulation design');ax.axis('off')
+    entries=[('Empirical calibration','2 cohorts · 6 correlated proteins · 5 covariates'),('Main grid','200 scenarios × 10,000 repetitions'),('Extensions','112 scenarios × 10,000 repetitions'),('Conditional design search','96 scenarios × 20,000 repetitions')]
+    for i,(title,detail) in enumerate(entries):
+        y=.93-i*.235
+        ax.text(0,y,title,fontsize=11,fontweight='bold',color=C['navy'])
+        ax.text(0,y-.085,detail,fontsize=10)
+    ax.text(0,-.12,'Total: 5,040,000 target datasets',fontsize=12,fontweight='bold',color=C['teal'])
+    save(fig,'Figure_S1')
+
 def read_airway(context, filename):
     return pd.read_csv(TABLES / 'airway' / context / filename, sep='\t')
 
+
 def figure_1():
-    D = json.loads(Path('data/figure_metadata/evidence_inventory.json').read_text(encoding='utf-8'))
-    fig = plt.figure(figsize=(14, 10.5))
-    gs = fig.add_gridspec(3, 2, left=0.075, right=0.975, top=0.89, bottom=0.11, hspace=0.66, wspace=0.35, height_ratios=[1, 1.02, 1])
-    axs = [fig.add_subplot(gs[i, j]) for i in range(3) for j in range(2)]
-
-    def title(ax, letter, text):
-        ax.set_title(text, loc='left', pad=12, fontsize=12, fontweight='bold')
-        ax.text(-0.105, 1.055, letter, fontsize=15, fontweight='bold', va='bottom', transform=ax.transAxes)
-
-    def clean(ax):
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.axis('off')
-    ax = axs[0]
-    clean(ax)
-    title(ax, 'A', 'The hypothesis requires links between layers')
-    nodes = [(0.02, 0.69, 'Clinical phenotype', 'Explicit cough status\nand duration', C['navy']), (0.58, 0.69, 'Molecular context', 'Blood proteins and\nnasal transcriptomes', C['teal']), (0.58, 0.16, 'Local physiology', 'Laryngeal motor activity;\nsensory pathway unmeasured', C['purple']), (0.02, 0.16, 'Patient benefit', 'Daily cough and quality of life;\nbenefit studied in separate cohorts', C['copper'])]
-    for x, y, heading, detail, col in nodes:
-        ax.plot([x, x], [y - 0.015, y + 0.23], color=col, lw=3)
-        ax.text(x + 0.025, y + 0.22, heading, color=col, fontsize=11.4, fontweight='bold', va='top')
-        ax.text(x + 0.025, y + 0.105, detail, fontsize=10.1, va='top', linespacing=1.35)
-    for start, end in [((0.43, 0.8), (0.555, 0.8)), ((0.78, 0.65), (0.78, 0.45)), ((0.55, 0.27), (0.43, 0.27))]:
-        ax.add_patch(FancyArrowPatch(start, end, arrowstyle='-|>', mutation_scale=12, linestyle=(0, (3, 3)), color=C['gray'], lw=1.1))
-    ax.text(0.4, 0.5, 'No matched analysis of\nmolecular context, physiology\nand treatment response', ha='center', va='center', fontsize=9.7, fontstyle='italic', color=C['gray'])
-    ax.plot([0.02, 0.12], [0.015, 0.015], ls=(0, (3, 3)), color=C['gray'], lw=1.1)
-    ax.text(0.14, 0.015, 'Dashed arrows: conceptual links, not estimated causal effects', va='center', fontsize=9)
-    ax = axs[1]
-    title(ax, 'B', 'Participant numbers depend on the analysis')
-    rows = D['counts']
-    yy = np.arange(len(rows))[::-1]
-    layer_colors = {'blood': C['teal'], 'airway': C['navy'], 'physiology': C['purple'], 'trial': C['copper']}
-    ax.barh(yy, [r['n'] for r in rows], height=0.6, color=[layer_colors[r['layer']] for r in rows], alpha=0.95)
-    for y, r in zip(yy, rows):
-        ax.text(r['n'] + 2, y, str(r['n']), va='center', fontsize=10, fontweight='bold')
-    ax.set_yticks(yy, [r['label'] for r in rows])
-    ax.set_xlim(0, 118)
-    ax.set_ylim(-0.6, 8.6)
-    ax.set_xticks([0, 25, 50, 75, 100])
-    ax.set_xlabel('Participants or donors (not libraries)', labelpad=3)
-    ax.tick_params(axis='y', length=0, pad=5)
-    ax.spines['left'].set_visible(False)
-    ax.grid(axis='x', color=C['pale'], linewidth=0.6)
-    ax.set_axisbelow(True)
-    ax.text(0, -0.27, 'INCOV + MY-LC: 203 eligible → 202 with protein data.\nLongitudinal/radiology analyses share a cohort; no pooled total N.', transform=ax.transAxes, fontsize=9.2, va='top', linespacing=1.3)
-    ax = axs[2]
-    title(ax, 'C', 'Sampling time is not cough duration')
-    clean(ax)
-    ax.text(0, 0.98, 'Observed postinfection assessment ranges', fontsize=10.5, fontweight='bold', va='top')
-    chart = ax.inset_axes([0.12, 0.52, 0.85, 0.35])
-    chart.set_xlim(0, 620)
-    chart.set_ylim(-0.55, 1.55)
-    for y, r, col in zip([1, 0], D['observed_timing'], [C['teal'], C['navy']]):
-        chart.plot([r['min_days'], r['max_days']], [y, y], lw=5, color=col, solid_capstyle='butt')
-        chart.scatter([r['min_days'], r['max_days']], [y, y], s=23, color=col, zorder=3)
-        label = f"{r['min_days']:.2f}–{r['max_days']:.2f} d" if r['cohort'] == 'INCOV' else '104–578 d'
-        chart.text((r['min_days'] + r['max_days']) / 2, y + 0.2, label, ha='center', fontsize=9.5)
-    chart.set_yticks([1, 0], ['INCOV', 'MY-LC'])
-    chart.tick_params(axis='y', length=0, pad=5)
-    chart.set_xticks([0, 200, 400, 600])
-    chart.set_xlabel('Days after recorded symptom onset', fontsize=9, labelpad=2)
-    chart.spines['left'].set_visible(False)
-    chart.spines['bottom'].set_color(C['gray'])
-    ax.plot([0, 1], [0.34, 0.34], color=C['pale'], lw=1)
-    ax.text(0, 0.28, 'Study entry criteria (different constructs)', fontsize=10.5, fontweight='bold', va='top')
-    ax.text(0, 0.145, 'LEMG', fontsize=10, color=C['purple'], fontweight='bold', va='center')
-    ax.text(0.21, 0.145, 'Cough present ≥12 weeks after COVID-19', fontsize=9.7, va='center')
-    ax.text(0, 0.025, 'Selected trial', fontsize=10, color=C['copper'], fontweight='bold', va='center')
-    ax.text(0.21, 0.025, 'Daily dry cough for ≥6 months', fontsize=9.7, va='center')
-    ax.text(0, -0.105, 'Neither sampling range establishes continuous cough in each participant.', fontsize=9.2, va='top', color=C['gray'])
-    ax = axs[3]
-    title(ax, 'D', 'Tissue and endpoint coverage are uneven')
-    arr = np.array(D['availability'])
-    nr, nc = arr.shape
-    for i in range(nr):
-        for j in range(nc):
-            ax.add_patch(Rectangle((j - 0.47, i - 0.43), 0.94, 0.86, facecolor='#F5F7F8', edgecolor='white', lw=0.5))
-            if arr[i, j] == 1:
-                ax.scatter(j, i, s=52, color=C['teal'], zorder=3)
-            elif arr[i, j] == 2:
-                ax.scatter(j, i, s=62, facecolors='none', edgecolors=C['copper'], linewidths=1.5, zorder=3)
-            else:
-                ax.text(j, i, '–', ha='center', va='center', fontsize=11, color='#A9AFB3')
-    ax.set_xlim(-0.6, 5.6)
-    ax.set_ylim(8.55, -2.0)
-    ax.set_yticks(np.arange(nr), D['availability_rows'])
-    ax.set_xticks([])
-    for j, label in enumerate(D['availability_columns']):
-        ax.text(j, -1.3, label, ha='center', va='center', fontsize=8.8)
-    ax.tick_params(axis='both', length=0, pad=5, labelsize=8.8)
-    for s in ax.spines.values():
-        s.set_visible(False)
-    ax.text(0, -0.12, '● available   ○ incomplete cough coding   – not in analysed inputs', fontsize=9.2, transform=ax.transAxes, va='top')
-    ax.text(0, -0.23, 'Blood RNA: “not listed” does not establish absence of cough.', fontsize=9.2, transform=ax.transAxes, va='top', color=C['gray'])
-    ax = axs[4]
-    clean(ax)
-    title(ax, 'E', 'Accessions and analyses are not independent units')
-
-    def source(x, y, text, w=0.36):
-        ax.add_patch(Rectangle((x - w / 2, y - 0.085), w, 0.17, facecolor='#F1F4F5', edgecolor=C['pale'], lw=0.8))
-        ax.text(x, y, text, ha='center', va='center', fontsize=9.5)
-
-    def analysis(y, text, col):
-        ax.scatter(0.57, y, s=38, color=col, zorder=4)
-        ax.text(0.6, y, text, ha='left', va='center', color=col, fontsize=10.5, fontweight='bold', zorder=5)
-    source(0.2, 0.84, 'GSE286429')
-    analysis(0.84, 'Culture contrasts', C['navy'])
-    ax.plot([0.38, 0.55], [0.84, 0.84], color=C['navy'], lw=1.1)
-    ax.text(0.76, 0.7, 'same study / donors', ha='center', fontsize=9, color=C['gray'])
-    source(0.2, 0.49, 'GSE261777')
-    ax.plot([0.38, 0.49], [0.49, 0.49], color=C['navy'], lw=1.1)
-    ax.plot([0.49, 0.49], [0.41, 0.57], color=C['navy'], lw=1.1)
-    for y, text in [(0.57, 'Longitudinal'), (0.41, 'Radiology')]:
-        analysis(y, text, C['navy'])
-        ax.plot([0.49, 0.55], [y, y], color=C['navy'], lw=1.1)
-    ax.text(0.76, 0.29, 'same source cohort', ha='center', fontsize=9, color=C['gray'])
-    source(0.2, 0.14, 'GSE232623\nGSE232627')
-    analysis(0.14, 'Pseudobulk', C['teal'])
-    ax.plot([0.38, 0.55], [0.14, 0.14], color=C['teal'], lw=1.1)
-    ax.plot([0.2, 0.2], [0.58, 0.75], ls=(0, (3, 3)), lw=1.1, color=C['copper'])
-    ax.text(0.02, 0.665, 'overlap\nunresolved', ha='left', va='center', fontsize=8.9, color=C['copper'])
-    ax.text(0, -0.08, 'Solid: shared source data. Dashed: culture–clinical overlap unresolved.', fontsize=9.2, va='top', color=C['gray'])
-    ax = axs[5]
-    title(ax, 'F', 'Multiplicity is controlled within defined families')
-    labels = ['Context analyses', 'Blood primary', 'INCOV exploratory', 'MY-LC exploratory']
-    values = [50, 12, 448, 138]
-    ys = [3, 2, 1, 0]
-    colors = [C['navy'], C['teal'], C['purple'], C['sage']]
-    ax.barh(ys, values, height=0.52, color=colors)
-    for boundary in [10, 20, 30, 40]:
-        ax.plot([boundary, boundary], [2.74, 3.26], color='white', lw=1)
-    for y, n, family in zip(ys, values, ['5 × BH(10)', 'BH(12)', 'BH(448)', 'BH(138)']):
-        ax.text(n + 8, y, f'{n}  |  {family}', va='center', fontsize=10)
-    ax.set_xlim(0, 610)
-    ax.set_ylim(-0.6, 3.6)
-    ax.set_yticks(ys, labels)
-    ax.set_xticks([0, 100, 200, 300, 400, 500])
-    ax.set_xlabel('Number of planned or screened tests', labelpad=5)
-    ax.tick_params(axis='y', length=0, pad=5)
-    ax.spines['left'].set_visible(False)
-    ax.grid(axis='x', color=C['pale'], lw=0.6)
-    ax.set_axisbelow(True)
-    ax.text(0, -0.27, 'Context: five analyses × ten programmes, with separate BH correction.\nExploratory: 586 tests across two families; no pooled 586-test q value.', transform=ax.transAxes, fontsize=9.2, va='top', linespacing=1.3)
-    save(fig, 'Figure1')
-
-def figure_2():
     inp = TABLES / 'proteomics'
     elig = pd.read_csv('data/processed/proteomics/eligibility.csv')
     primary = pd.read_csv(inp / 'primary_panel_results.csv')
@@ -194,11 +92,14 @@ def figure_2():
     assert len(primary) == 12 and len(exploratory) == 586
     eligible = elig[elig.eligible.astype(str).str.lower().eq('true')].copy()
     assert eligible.groupby('cohort').size().to_dict() == {'INCOV': 105, 'MYLC': 98}
+    members = pd.read_csv(inp / 'primary_model_members.csv')[['cohort', 'participant_id']].drop_duplicates()
+    model_population = eligible.merge(members, on=['cohort', 'participant_id'], validate='one_to_one')
+    assert model_population.groupby('cohort').size().to_dict() == {'INCOV': 105, 'MYLC': 97}
     fig = plt.figure(figsize=(14, 10.5))
     gs = fig.add_gridspec(2, 3, left=0.072, right=0.975, bottom=0.135, top=0.855, wspace=0.38, hspace=0.66)
     axs = [fig.add_subplot(gs[r, c]) for r in range(2) for c in range(3)]
     a = axs[0]
-    label(a, 'A', 'From public records to analysis')
+    label(a, 'A', 'Participant flow')
     a.axis('off')
     a.set_xlim(-0.45, 3.45)
     a.set_ylim(-0.65, 2.55)
@@ -214,10 +115,10 @@ def figure_2():
         a.text(3, y - 0.31, '26 / 79' if cohort == 'INCOV' else '24 / 73', ha='center', fontsize=9)
     a.text(-0.38, -0.48, 'Model counts below: cough / no cough.\nMYLC: one eligible participant lacked all protein outcomes.', fontsize=9, color=C['gray'], va='top')
     a = axs[1]
-    label(a, 'B', 'Timing differs substantially by cohort')
+    label(a, 'B', 'Assessment timing')
     rng = np.random.default_rng(20482)
     for i, (cohort, cough) in enumerate([('INCOV', 0), ('INCOV', 1), ('MYLC', 0), ('MYLC', 1)]):
-        d = eligible[(eligible.cohort == cohort) & (eligible.cough == cough)].days.to_numpy()
+        d = model_population[(model_population.cohort == cohort) & (model_population.cough == cough)].days.to_numpy()
         color = C['navy'] if cohort == 'INCOV' else C['teal']
         a.scatter(i + rng.uniform(-0.2, 0.2, len(d)), d, s=13, color=color, alpha=0.57, linewidth=0, zorder=2)
         q1, med, q3 = np.quantile(d, [0.25, 0.5, 0.75])
@@ -227,14 +128,14 @@ def figure_2():
         a.text(i, -0.13, f'n = {len(d)}', ha='center', transform=a.get_xaxis_transform(), fontsize=9)
     a.set_xticks(range(4), ['No cough', 'Cough', 'No cough', 'Cough'])
     a.set_ylim(0, 650)
-    a.set_ylabel('Days since reported illness anchor')
+    a.set_ylabel('Days since documented symptom onset')
     a.set_yticks([0, 200, 400, 600])
     a.set_xlim(-0.5, 3.5)
     a.text(0.125, -0.24, 'INCOV', transform=a.transAxes, color=C['navy'], ha='center', fontweight='bold')
     a.text(0.79, -0.24, 'MYLC', transform=a.transAxes, color=C['teal'], ha='center', fontweight='bold')
     a.grid(axis='y', color=C['pale'], lw=0.65, zorder=0)
     a = axs[2]
-    label(a, 'C', 'No primary contrast survives correction')
+    label(a, 'C', 'Adjusted protein associations')
     proteins = ['IFNG', 'TNF', 'IL10', 'CXCL9', 'CXCL10', 'CXCL11']
     for ci, cohort in enumerate(['INCOV', 'MYLC']):
         for j, p in enumerate(proteins):
@@ -245,7 +146,7 @@ def figure_2():
     a.axvline(0, color=C['gray'], lw=0.8, ls=(0, (3, 3)))
     a.set_yticks(range(6), proteins[::-1])
     a.set_ylim(-0.6, 5.85)
-    a.set_xlim(-0.65, 1.15)
+    a.set_xlim(min(-0.65, primary.ci_low.min() - .04), max(1.15, primary.ci_high.max() + .04))
     a.set_xlabel('Adjusted difference / outcome SD')
     a.legend(handles=[Line2D([0], [0], marker='o', color=C['navy'], label='INCOV', lw=1), Line2D([0], [0], marker='s', color=C['teal'], label='MYLC', lw=1)], loc='upper center', bbox_to_anchor=(0.5, 1.08), ncol=2, frameon=False, handlelength=1.5, columnspacing=1)
     a.text(0.5, -0.23, 'HC3 95% CIs; minimum BH q = 0.300', transform=a.transAxes, ha='center', fontsize=9, color=C['gray'])
@@ -263,7 +164,7 @@ def figure_2():
         a.set_xlim(-max(abs(d.beta)) - 0.1, max(abs(d.beta)) + 0.1)
         a.text(0.03, 0.96, f'BH q < 0.05: 0 / {n}\nMinimum q = {d.q_exploratory.min():.3f}', transform=a.transAxes, va='top', fontsize=10, bbox={'facecolor': 'white', 'edgecolor': 'none', 'alpha': 0.88, 'pad': 3})
     a = axs[5]
-    label(a, 'F', 'Non-significance leaves broad uncertainty')
+    label(a, 'F', 'Interval compatibility')
     bounds = [0.2, 0.5, 0.8]
     nom = []
     fam = []
@@ -284,9 +185,9 @@ def figure_2():
     a.set_xlabel('Illustrative positive effect reference')
     a.legend(loc='upper left', frameon=False, fontsize=9)
     a.text(0.5, -0.2, 'Reference values are not clinical thresholds.', transform=a.transAxes, ha='center', fontsize=9, color=C['gray'])
-    save(fig, 'Figure2')
+    save(fig, 'Figure_1')
 
-def figure_3():
+def figure_2():
     COL = ['#24485C', '#2C7C87', '#C07852', '#8C7AA7', '#8B9D77', '#5F6570']
     GRID = '#D9DFDF'
     INK = '#24353D'
@@ -434,217 +335,9 @@ def figure_3():
     polish(f)
     f.legend(handles=[Line2D([], [], marker='o', linestyle='', color=COL[5], label='Male'), Line2D([], [], marker='D', linestyle='', color=COL[5], label='Female')], loc='lower left', bbox_to_anchor=(0, -0.47), ncol=2, frameon=False, fontsize=9, handletextpad=0.5)
     f.text(0, -0.61, 'Age overlap is limited; each point is one donor.', transform=f.transAxes, fontsize=9, color=COL[5])
-    save(fig, 'Figure3')
+    save(fig, 'Figure_2')
 
-def figure_4():
-    inp = TABLES / 'clinical'
-    d = pd.read_csv(inp / 'clinical_lemg_merged.csv')
-    props = pd.read_csv(inp / 'lemg_descriptive_proportions.csv')
-    freq = pd.read_csv(inp / 'clinical_frequency_table.csv')
-    tests = pd.read_csv(inp / 'exploratory_within_case_symptom_contrasts.csv')
-    summary = json.loads((inp / 'laryngeal_summary.json').read_text(encoding='utf-8'))
-    d['abnormal'] = d.LEMG_abnormal.astype(str).str.lower().eq('true')
-    assert len(d) == 38 and d.abnormal.sum() == 29
-    fig = plt.figure(figsize=(14, 10.5))
-    gs = fig.add_gridspec(2, 3, left=0.09, right=0.975, bottom=0.14, top=0.855, wspace=0.53, hspace=0.66)
-    axs = [fig.add_subplot(gs[r, c]) for r in range(2) for c in range(3)]
-    a = axs[0]
-    label(a, 'A', 'Clinical cohort and assessments')
-    a.axis('off')
-    a.set_xlim(0, 1)
-    a.set_ylim(0, 1)
-    a.text(0.04, 0.92, 'Published post-COVID cough series', fontsize=11.2, fontweight='bold', color=C['navy'], va='center')
-    a.text(0.04, 0.8, 'Cough present ≥12 weeks\n after COVID-19 diagnosis'.replace('\n ', '\n'), fontsize=10, color=C['gray'], va='center')
-    for y, n, txt in [(0.53, '38', 'Clinical records'), (0.25, '38', 'Linked LEMG records')]:
-        a.text(0.04, y, n, fontsize=26, fontweight='bold', color=C['navy'], va='center')
-        a.text(0.3, y, txt, fontsize=10.5, va='center', wrap=True)
-    for y in [0.67, 0.39]:
-        a.annotate('', xy=(0.12, y - 0.06), xytext=(0.12, y + 0.055), arrowprops={'arrowstyle': '->', 'color': C['gray'], 'lw': 1})
-    a.text(0.04, 0.04, '36 normal vocal-fold movement | 2 vocal-fold palsy', fontsize=9, color=C['gray'])
-    a = axs[1]
-    label(a, 'B', 'Abnormal LEMG in overlapping subsets')
-    short = ['All selected cases', 'Normal cord movement', 'No respiratory disorder', 'Not hospitalised', 'Hospitalised', 'Non-smokers']
-    for i, row in props.iterrows():
-        y = 5 - i
-        c = C['navy'] if i == 0 else C['teal']
-        a.errorbar(row.fraction, y, xerr=[[row.fraction - row.wilson_95_lower], [row.wilson_95_upper - row.fraction]], fmt='o', color=c, lw=1.3, capsize=2, markersize=5)
-        a.text(1.03, y, f'{row.abnormal_n}/{row.denominator}', va='center', fontsize=9)
-    a.set_yticks(range(6), short[::-1])
-    a.set_xlim(0, 1.22)
-    a.set_xticks([0, 0.25, 0.5, 0.75, 1], ['0', '25', '50', '75', '100'])
-    a.set_ylim(-0.6, 5.6)
-    a.set_xlabel('Abnormal LEMG (%)')
-    a.text(0.5, -0.22, 'Wilson 95% CIs; subsets overlap.', transform=a.transAxes, ha='center', fontsize=9, color=C['gray'])
-    a = axs[2]
-    label(a, 'C', 'Movement and LEMG are distinct')
-    mat = np.array([[int(((d['Vocal cord mobility'] == 'N') & d.abnormal).sum()), int(((d['Vocal cord mobility'] == 'VC palsy') & d.abnormal).sum())], [int(((d['Vocal cord mobility'] == 'N') & ~d.abnormal).sum()), int(((d['Vocal cord mobility'] == 'VC palsy') & ~d.abnormal).sum())]])
-    assert mat.tolist() == [[27, 2], [9, 0]]
-    cmap = LinearSegmentedColormap.from_list('teal_counts', ['#F1F5F5', C['teal']])
-    a.imshow(mat, cmap=cmap, vmin=0, vmax=27, aspect='auto', extent=[-0.5, 1.5, 1.5, -0.5])
-    for i in range(2):
-        for j in range(2):
-            a.text(j, i, str(mat[i, j]), ha='center', va='center', fontsize=25, fontweight='bold', color='white' if mat[i, j] > 15 else C['navy'])
-    a.set_xticks([0, 1], ['Normal movement\n(n = 36)', 'Vocal cord palsy\n(n = 2)'])
-    a.set_yticks([0, 1], ['Abnormal\nLEMG', 'Normal\nLEMG'])
-    a.tick_params(length=0)
-    for spine in a.spines.values():
-        spine.set_visible(False)
-    a.axhline(0.5, color='white', lw=3)
-    a.axvline(0.5, color='white', lw=3)
-    a.text(0.5, -0.23, 'Counts, not a diagnostic-accuracy estimate.', transform=a.transAxes, ha='center', fontsize=9, color=C['gray'])
-    a = axs[3]
-    label(a, 'D', 'Frequently recorded features')
-    sel = freq[(freq.variable != 'Cough') & (freq.yes_n >= 7)].copy().sort_values(['yes_n', 'variable'], ascending=[True, False])
-    labels = {'Memory loss, brain fog, attention disorders': 'Cognitive symptoms', 'Globus pharyngis': 'Globus pharyngis', 'Dysautonomic symptoms': 'Autonomic symptoms', 'Laryngeal Edema': 'Laryngeal oedema', 'Dyspnea': 'Dyspnoea', 'Arthromyalgias': 'Arthromyalgias', 'PPIs': 'PPI use', 'GERD': 'GERD'}
-    y = np.arange(len(sel))
-    a.barh(y, sel.yes_n, color=[C['gray'] if v in ['PPIs', 'GERD', 'Smoker'] else C['teal'] for v in sel.variable], height=0.63)
-    a.set_yticks(y, [labels.get(v, v) for v in sel.variable])
-    a.set_xlim(0, 28)
-    a.set_xticks([0, 10, 20])
-    a.set_xlabel('Patients (of 38)')
-    for yy, n in zip(y, sel.yes_n):
-        a.text(n + 0.45, yy, str(n), va='center', fontsize=9)
-    a.text(0.5, -0.22, 'Displayed if recorded in ≥7 cases; cough: 38/38.\nAll 22 recorded fields are retained in source data.', transform=a.transAxes, ha='center', fontsize=9, color=C['gray'])
-    a = axs[4]
-    label(a, 'E', 'Four-muscle coverage is incomplete')
-    cols = ['Right_CT', 'Left_CT', 'Right_TA', 'Left_TA']
-    missing = d[cols].eq('NP').to_numpy()
-    assert missing.sum() == 12 and missing.any(axis=1).sum() == 7
-    a.imshow(missing.astype(int), cmap=ListedColormap([C['pale'], C['copper']]), vmin=0, vmax=1, aspect='auto', extent=[-0.5, 3.5, 37.5, -0.5])
-    a.set_xlim(-0.5, 7.3)
-    a.set_ylim(37.5, -0.5)
-    a.set_xticks(range(4), ['R CT', 'L CT', 'R TA', 'L TA'])
-    a.set_yticks([0, 9, 19, 29, 37], [str(d.iloc[i].Patient) for i in [0, 9, 19, 29, 37]])
-    a.set_ylabel('Published participant ID')
-    for x in [0.5, 1.5, 2.5]:
-        a.plot([x, x], [-0.5, 37.5], color='white', lw=0.7)
-    a.text(4.1, 6, '12 / 152', fontsize=17, fontweight='bold', color=C['copper'])
-    a.text(4.1, 10, 'Muscles not\nperformed', fontsize=10, va='top')
-    a.text(4.1, 20, '7 / 38', fontsize=17, fontweight='bold', color=C['navy'])
-    a.text(4.1, 24, 'Patients with\npartial examinations', fontsize=10, va='top')
-    a.spines['bottom'].set_visible(False)
-    a.spines['left'].set_visible(False)
-    a.tick_params(length=0)
-    a.legend(handles=[Patch(color=C['pale'], label='Performed'), Patch(color=C['copper'], label='Not performed')], loc='upper center', bbox_to_anchor=(0.5, -0.08), ncol=2, frameon=False, handlelength=1, fontsize=9)
-    a.text(0.5, -0.24, 'CT: cricothyroid; TA: thyroarytenoid.', transform=a.transAxes, ha='center', fontsize=9, color=C['gray'])
-    a = axs[5]
-    label(a, 'F', 'Case-only symptom comparisons')
-    a.axis('off')
-    a.set_xlim(0, 1)
-    a.set_ylim(0, 1)
-    xs = [0.02, 0.49, 0.71, 0.94]
-    for x, t, ha in zip(xs, ['Symptom', 'Present', 'Absent', 'BH q'], ['left', 'center', 'center', 'center']):
-        a.text(x, 0.94, t, ha=ha, fontsize=10, fontweight='bold')
-    a.text(0.6, 0.88, 'Abnormal / total LEMG', ha='center', fontsize=9, color=C['gray'])
-    for i, row in tests.iterrows():
-        y = 0.75 - i * 0.145
-        name = 'Laryngospasm' if row.symptom == 'Laryngospam' else row.symptom
-        if i % 2 == 0:
-            a.axhspan(y - 0.056, y + 0.056, color='#F3F5F5', zorder=0)
-        a.text(0.02, y, name, va='center', fontsize=10)
-        a.text(0.49, y, f'{row.yes_abnormal}/{row.yes_abnormal + row.yes_normal}', ha='center', va='center', fontsize=11, color=C['navy'])
-        a.text(0.71, y, f'{row.no_abnormal}/{row.no_abnormal + row.no_normal}', ha='center', va='center', fontsize=11, color=C['navy'])
-        a.text(0.94, y, f'{row.BH_q_five_tests:.3f}', ha='center', va='center', fontsize=10)
-    a.text(0.02, -0.03, 'Fisher two-sided tests; BH across five contrasts.\nLaryngospasm has a zero cell (unadjusted OR = ∞).', fontsize=9, color=C['gray'], va='top')
-    save(fig, 'Figure4')
-
-def figure_5():
-    navy, teal, terra, purple, gray = ('#24485C', '#2C7C87', '#C07852', '#8C7AA7', '#5F6570')
-    I = TABLES / 'clinical'
-    d = pd.read_csv(I / 'trial_patient_response.csv')
-    t = json.loads((I / 'trial_reanalysis.json').read_text(encoding='utf-8'))
-    b = pd.read_csv(I / 'between_arm_effects.csv')
-    w = pd.read_csv(I / 'within_arm_changes.csv')
-    fig, axs = plt.subplots(3, 2, figsize=(14, 10.5))
-    fig.subplots_adjust(left=0.15, right=0.975, top=0.895, bottom=0.12, hspace=0.8, wspace=0.5)
-
-    def panel(ax, letter, title):
-        ax.set_title(title, loc='left', pad=13, fontweight='bold', color=navy)
-        ax.text(-0.16, 1.13, letter, transform=ax.transAxes, fontsize=17, fontweight='bold', color='black', va='bottom')
-        ax.tick_params(length=3)
-        ax.set_axisbelow(True)
-
-    def err(ax, est, lo, hi, y, c):
-        ax.errorbar(est, y, xerr=[[est - lo], [hi - est]], fmt='o', color=c, ecolor=c, elinewidth=1.8, capsize=3, ms=6)
-    ax = axs[0, 0]
-    panel(ax, 'A', 'Day-10 response in selected postviral cough')
-    for y, (arm, c) in enumerate([('Amitriptyline', teal), ('Codeine/guaifenesin', terra)]):
-        sub = d[d.arm == arm]
-        for val, g in sub.groupby('response_percent_day10'):
-            yy = y + (np.arange(len(g)) - (len(g) - 1) / 2) * 0.055
-            ax.scatter(np.repeat(val, len(g)), yy, s=40, color=c, edgecolors='white', linewidth=0.5, zorder=3)
-    ax.set_yticks([0, 1], ['Amitriptyline\nn = 15', 'Codeine/guaifenesin\nn = 13'])
-    ax.set_ylim(1.42, -0.42)
-    ax.set_xlim(-7, 107)
-    ax.set_xticks([0, 25, 50, 75, 100])
-    ax.set_xlabel('Self-reported improvement at day 10 (%)')
-    ax.grid(axis='x', alpha=0.17)
-    ax.text(0, -0.35, 'Predictable chart-number allocation; no objective cough count', transform=ax.transAxes, fontsize=9, color=gray)
-    ax = axs[0, 1]
-    panel(ax, 'B', 'Two response definitions, one patient sample')
-    for y, r in enumerate(t['thresholds']):
-        lo, hi = np.array(r['risk_difference_newcombe_wilson_95_ci']) * 100
-        est = r['risk_difference'] * 100
-        err(ax, est, lo, hi, y, teal)
-        counts = f"{r['arms']['Amitriptyline']['responders']}/15 vs {r['arms']['Codeine/guaifenesin']['responders']}/13"
-        ax.text(99, y + 0.19, f'{est:.1f} [{lo:.1f}, {hi:.1f}] pp', ha='right', fontsize=9, color=gray)
-        ax.text(4, y - 0.13, counts, fontsize=9)
-    ax.set_yticks([0, 1], ['Response ≥50%', 'Response ≥75%'])
-    ax.set_ylim(1.5, -0.55)
-    ax.set_xlim(0, 103)
-    ax.axvline(0, color=gray, lw=0.8)
-    ax.set_xlabel('Risk difference (percentage points), 95% CI')
-    ax.text(0, -0.35, 'Newcombe–Wilson intervals; thresholds are correlated', transform=ax.transAxes, fontsize=9, color=gray)
-    ax = axs[1, 0]
-    panel(ax, 'C', 'Postinfectious cough: between-arm LCQ contrasts')
-    labels = ['Montelukast · week 2', 'Montelukast · week 4*', 'Procaterol · common\nweek 2/4 coefficient']
-    for y, r in b.iterrows():
-        err(ax, r['mean'], r['lower'], r['upper'], y, teal if y < 2 else purple)
-    ax.set_yticks(range(3), labels)
-    ax.set_ylim(2.6, -0.6)
-    ax.set_xlim(-3.1, 1.1)
-    ax.axvline(0, color=gray, lw=0.8, ls='--')
-    ax.set_xlabel('Adjusted LCQ difference, 95% CI\nPositive values favour active treatment')
-    ax = axs[1, 1]
-    panel(ax, 'D', 'Within-arm recovery in the montelukast trial')
-    for arm, c, off in [('Active', teal, -0.035), ('Placebo', terra, 0.035)]:
-        z = w[(w.study_id == 'MONT2014') & (w.arm == arm)].sort_values('week')
-        ax.errorbar(z.week + off, z['mean'], yerr=[z['mean'] - z.lower, z.upper - z['mean']], fmt='o-', color=c, capsize=3, lw=1.5, label='Montelukast' if arm == 'Active' else 'Placebo')
-    ax.set_xlim(1.65, 4.35)
-    ax.set_xticks([2, 4], ['Week 2', 'Week 4*'])
-    ax.set_ylim(0, 7.5)
-    ax.set_ylabel('LCQ improvement from baseline')
-    ax.legend(frameon=False, loc='upper left', fontsize=9)
-    ax.grid(axis='y', alpha=0.17)
-    ax = axs[2, 0]
-    panel(ax, 'E', 'Objective cough-frequency reduction in RCC/UCC')
-    gefa = pd.read_csv(I / 'gefapixant_effects.csv')
-    rows = [(f'{r.trial} · week {r.week}', r.reduction_percent, r.lower, r.upper) for r in gefa.itertuples()]
-    for y, (label, m, l, h) in enumerate(rows):
-        err(ax, m, l, h, y, teal)
-        ax.text(36, y + 0.24, f'{m:.1f}% [{l:.1f}, {h:.1f}]', ha='right', fontsize=9, color=gray)
-    ax.set_yticks([0, 1], [x[0] for x in rows])
-    ax.set_ylim(1.6, -0.6)
-    ax.set_xlim(-2, 38)
-    ax.axvline(0, color=gray, lw=0.8, ls='--')
-    ax.set_xlabel('Relative reduction in 24-hour cough frequency (%)\nGefapixant 45 mg twice daily versus placebo')
-    ax = axs[2, 1]
-    panel(ax, 'F', 'Challenge response versus clinical outcomes')
-    endpoints = pd.read_csv(I / 'trial_endpoint_matrix.csv')
-    cells = endpoints.pivot(index='study', columns='endpoint', values='category').loc[['SB-705498', 'XEN-D0501', 'Gefapixant', 'Amitriptyline'], ['Capsaicin challenge', 'Daily cough frequency', 'Patient-reported outcomes']].to_numpy()
-    ax.imshow(cells, cmap=ListedColormap(['#EDF0F1', '#F0DED5', '#CBE0E2']), vmin=0, vmax=2, aspect='auto')
-    ax.set_xticks(range(3), ['Capsaicin\nchallenge', 'Daily cough\nfrequency', 'Patient-reported\noutcomes'])
-    ax.tick_params(axis='both', length=0, labelsize=9)
-    ax.set_yticks(range(4), ['SB-705498\nTRPV1', 'XEN-D0501\nTRPV1', 'Gefapixant\nP2X3', 'Amitriptyline\nSelected postviral'])
-    words = {0: 'Not assessed', 1: 'No benefit\ndemonstrated', 2: 'Benefit\nreported'}
-    for i in range(4):
-        for j in range(3):
-            ax.text(j, i, 'Challenge\nmodified' if j == 0 and cells[i, j] == 2 else 'LCQ response\nCOUGH-2' if i == 2 and j == 2 else words[cells[i, j]], ha='center', va='center', fontsize=9, color=navy)
-    for sp in ax.spines.values():
-        sp.set_visible(False)
-    save(fig, 'Figure5')
-
-def figure_s1():
+def figure_s2():
     COL = {0.3: '#2C7C87', 0.5: '#C07852'}
     GRAY = '#5F6570'
     GRID = '#E8EDF0'
@@ -710,15 +403,215 @@ def figure_s1():
     bx.set_axisbelow(True)
     bx.text(0, -0.24, 'True difference: δ for detection; 0 for exclusion and equivalence.', transform=bx.transAxes, fontsize=9, color=GRAY, va='top')
     fig.text(0.52, 0.025, 'Illustrative future designs; thresholds are not validated clinical margins.', ha='center', fontsize=10, fontstyle='italic', color=GRAY)
-    save(fig, 'FigureS1')
+    save(fig, 'Figure_S2')
+
+import matplotlib.colors as colours
+import matplotlib.font_manager as fonts
+TEAL, COPPER = "#176C73", "#B86D44"
+COHORT_COLOURS = {"INCOV": TEAL, "MYLC": COPPER}
+PROTEINS = ("IFNG", "TNF", "IL10", "CXCL9", "CXCL10", "CXCL11")
+NS = (100, 169, 466, 509, 1000)
+PROFILES = ((1., 1.), (.8, 1.), (1., .95), (.8, .95), (.8, .85))
+PROFILE_COLOURS = ("#174D57", "#438F98", "#A8AD83", "#C18A56", "#9A4044")
+
+
+def read(path):
+    return pd.read_csv(path, keep_default_na=False, na_values=[""])
+
+
+def tidy(ax):
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.tick_params(width=.6, length=3)
+    ax.grid(axis="y", color="#E4E5E4", lw=.45, zorder=0)
+    ax.set_axisbelow(True)
+
+
+def heading(fig, cell, letter, title, subtitle=""):
+    box = cell.get_position(fig)
+    fig.text(box.x0-.027, box.y1+.012, letter, fontsize=14, fontweight="bold", va="bottom")
+    fig.text(box.x0, box.y1+.015, title, fontsize=10.5, fontweight="bold", va="bottom")
+    if subtitle:
+        fig.text(box.x0, box.y1-.004, subtitle, fontsize=8, color="#4C5253", va="top")
+
+
+def figure_3():
+    for path in (Path.home()/".local/share/fonts").glob("*.TTF"):
+        fonts.fontManager.addfont(str(path))
+    fonts.findfont("Times New Roman", fallback_to_default=False)
+    plt.rcParams.update({"font.family":"Times New Roman", "font.size":8.5,
+                         "axes.labelsize":8.5, "axes.titlesize":9, "xtick.labelsize":7.5,
+                         "ytick.labelsize":8, "legend.fontsize":7.2, "axes.linewidth":.65,
+                         "pdf.fonttype":42, "ps.fonttype":42, "svg.fonttype":"none",
+                         "mathtext.fontset":"custom", "mathtext.rm":"Times New Roman",
+                         "mathtext.it":"Times New Roman:italic", "mathtext.bf":"Times New Roman:bold",
+                         "mathtext.cal":"Times New Roman"})
+    estimates = read(ROOT/"output/ademp/simulation_estimates.csv")
+    panels = read(ROOT/"output/ademp/simulation_panels.csv")
+    calibration = read(ROOT/"output/ademp/empirical_calibration.csv")
+    design = read(ROOT/"output/design/Table_2_conditional_design.csv")
+    core = estimates[(estimates.extension=="main") & (estimates.method=="a_joint") & (estimates.scale=="native")]
+    OUT.mkdir(parents=True, exist_ok=True)
+    fig = plt.figure(figsize=(11.7, 14.0), facecolor="white")
+    outer = fig.add_gridspec(3, 2, left=.08, right=.975, bottom=.055, top=.95,
+                            wspace=.22, hspace=.37, height_ratios=(.88,1.12,1.0))
+    source_data = []
+
+    cell = outer[0,0]
+    heading(fig,cell,"A","Empirical variance and covariate structure")
+    sub = cell.subgridspec(3,1,height_ratios=(1,1,.25),hspace=.8)
+    for i, (column,label,cmap,normal) in enumerate((
+        ("residual_variance_ratio","Residual variance ratio: cough / no cough", "RdBu_r", colours.TwoSlopeNorm(vcenter=0,vmin=-5,vmax=5)),
+        ("nuisance_partial_R2",r"Protein variance explained by covariates, partial $R^2$", "GnBu", colours.Normalize(0,.30)))):
+        ax=fig.add_subplot(sub[i]);matrix=np.array([calibration[calibration.cohort==c].set_index("protein").loc[list(PROTEINS),column] for c in ("INCOV","MYLC")])
+        im=ax.imshow(np.log2(matrix) if i==0 else matrix, cmap=cmap,norm=normal,aspect="auto")
+        ax.set_xticks(range(6),PROTEINS);ax.set_yticks(range(2),["INCOV","MY-LC"])
+        ax.set_title(label,loc="left",pad=7)
+        for r in range(2):
+            for j in range(6):
+                value=matrix[r,j]
+                text=f"{value:.2f}" if i==0 else f"{100*value:.1f}%"
+                ax.text(j,r,text,ha="center",va="center",fontsize=8,color="white" if (i==0 and abs(np.log2(value))>3) or (i==1 and value>.22) else "#202729")
+        ax.tick_params(length=0,pad=5)
+        for spine in ax.spines.values():spine.set_visible(False)
+    ax=fig.add_subplot(sub[2]);ax.axis("off")
+    r2=calibration.groupby("cohort").cough_R2_Z.first()
+    ax.text(0,.5,fr"$R^2_{{C^*|Z}}$: INCOV {r2['INCOV']:.3f}; MY-LC {r2['MYLC']:.3f}",va="center")
+    source_data.append(calibration.assign(panel="A"))
+
+    cell=outer[0,1]
+    heading(fig,cell,"B","Preprocessing and coefficient scale",r"$\delta=0.30$; N=466; perfect phenotype; source-interaction scenario")
+    content=cell.subgridspec(2,1,height_ratios=(.16,1),hspace=0)[1]
+    sub=content.subgridspec(1,2,wspace=.18)
+    selected=estimates[(estimates.extension=="source_interaction")&(estimates.n==466)&(estimates.se==1)&(estimates.sp==1)&(estimates.effect=="dense03")]
+    methods=("a_joint","b_readjusted","c_residual_groups","d_source")
+    labels=("a  Joint model","b  Residual + Z, H","c  Residual only","d  Source; H omitted")
+    for col,scale in enumerate(("native","subgroup_standardised")):
+        ax=fig.add_subplot(sub[col]);tidy(ax)
+        for m,method in enumerate(methods):
+            for cohort,offset in (("INCOV",-.12),("MYLC",.12)):
+                d=selected[(selected.method==method)&(selected.scale==scale)&(selected.cohort==cohort)]
+                y=3-m+offset;colour=COHORT_COLOURS[cohort]
+                values=d.mean_beta.to_numpy();truth=d.mean_scientific_target.to_numpy()
+                ax.plot([values.min(),values.max()],[y,y],color=colour,lw=1.1)
+                ax.scatter(values,np.full(6,y),s=14,color=colour,alpha=.7,zorder=4)
+                ax.scatter([truth.mean()],[y],marker="|",s=90,color="#121819",lw=1.2,zorder=5)
+        ax.set_ylim(-.5,3.75);ax.set_yticks(range(4),labels[::-1] if col==0 else [""]*4)
+        ax.set_xlabel("Mean coefficient")
+        ax.set_title("Reference SD" if col==0 else "Subgroup observed SD",pad=6)
+        if col==0:ax.axvline(.3,color="#8E9798",lw=.7,ls="--")
+        ax.set_xlim(.21,.38);ax.set_xticks([.22,.26,.30,.34,.38])
+    box=cell.get_position(fig)
+    fig.text(box.x0,box.y0-.035,"Teal: INCOV   Copper: MY-LC   |: scale-specific target\nPoints: six proteins; ranges describe protein heterogeneity.",fontsize=7.4,va="top")
+    source_data.append(selected.assign(panel="B"))
+
+    cell=outer[1,0]
+    heading(fig,cell,"C","Finite-sample calibration of HC3 + t", "Perfect phenotype; six correlated protein tests")
+    content=cell.subgridspec(2,1,height_ratios=(.12,1),hspace=0)[1]
+    sub=content.subgridspec(2,2,wspace=.4,hspace=.72,height_ratios=(1,1))
+    ax=fig.add_subplot(sub[0,0]);tidy(ax)
+    for cohort,colour in COHORT_COLOURS.items():
+        d=core[(core.cohort==cohort)&(core.se==1)&(core.sp==1)&(core.effect=="null")]
+        g=d.groupby("n").coverage_95_target.agg(["mean","min","max"]).loc[list(NS)]*100
+        ax.plot(NS,g['mean'],color=colour,marker="o",ms=3)
+        ax.fill_between(NS,g['min'],g['max'],color=colour,alpha=.13)
+    ax.axhline(95,color="#555D5F",ls="--",lw=.7);ax.set_ylim(90,100);ax.set_title("95% interval coverage")
+    ax.set_ylabel("Coverage (%)");ax.set_xticks([100,466,1000]);ax.set_xlabel("N per cohort")
+    ax=fig.add_subplot(sub[0,1]);tidy(ax)
+    for cohort,colour in COHORT_COLOURS.items():
+        for effect,style in (("null","-"),("sparse03","--")):
+            d=panels[(panels.extension=="main")&(panels.method=="a_joint")&(panels.cohort==cohort)&(panels.se==1)&(panels.sp==1)&(panels.effect==effect)].sort_values("n")
+            ax.errorbar(d.n,d.fdr*100,yerr=1.96*d.fdr_mcse*100,color=colour,ls=style,marker="o",ms=3,lw=1,capsize=2)
+    ax.axhline(5,color="#555D5F",ls=":",lw=.7);ax.set_ylim(0,8);ax.set_title("BH false discovery rate")
+    ax.set_ylabel("FDR (%)");ax.set_xticks([100,466,1000]);ax.set_xlabel("N per cohort")
+    ax.text(.98,.96,"Solid: all-null\nDashed: one signal",ha="right",va="top",transform=ax.transAxes,fontsize=7)
+    ax=fig.add_subplot(sub[1,:]);tidy(ax)
+    for cohort,colour in COHORT_COLOURS.items():
+        d=core[(core.cohort==cohort)&(core.se==1)&(core.sp==1)&(core.effect=="sparse03")&(core.protein=="IFNG")].sort_values("n")
+        ax.errorbar(d.n,d.discovery_bh6*100,yerr=1.96*d.discovery_bh6_mcse*100,color=colour,lw=1.3,marker="o",ms=3,label=cohort.replace("MYLC","MY-LC"),capsize=2)
+    ax.set_ylim(0,100);ax.set_xticks([100,466,1000]);ax.set_xlabel("N per cohort");ax.set_ylabel("BH discovery power (%)")
+    ax.set_title(r"Sparse alternative: IFNG $\delta=0.30$; five null proteins",loc="left");ax.legend(frameon=False,loc="lower right")
+
+    cell=outer[1,1]
+    heading(fig,cell,"D","Phenotype quality and discovery power",r"$\delta=0.30$ for six proteins; mean BH discovery probability")
+    content=cell.subgridspec(2,1,height_ratios=(.12,1),hspace=0)[1]
+    sub=content.subgridspec(2,2,height_ratios=(1,.2),wspace=.3,hspace=.23)
+    handles=[]
+    for col,cohort in enumerate(("INCOV","MYLC")):
+        ax=fig.add_subplot(sub[0,col]);tidy(ax)
+        for (se,sp),colour in zip(PROFILES,PROFILE_COLOURS):
+            d=panels[(panels.extension=="main")&(panels.method=="a_joint")&(panels.effect=="dense03")&(panels.cohort==cohort)&(panels.se==se)&(panels.sp==sp)].sort_values("n")
+            line,=ax.plot(d.n,100*d.true_discovery_fraction,color=colour,lw=1.3,marker="o",ms=3,label=f"{se:.2f}/{sp:.2f}")
+            if col==0:handles.append(line)
+        ax.axhline(80,color="#8E9798",ls=":",lw=.7);ax.set_ylim(0,100)
+        ax.set_xticks([100,466,1000]);ax.set_xlabel("N per cohort");ax.set_title(cohort.replace("MYLC","MY-LC"))
+        if col==0:ax.set_ylabel("Discovery power (%)")
+    ax=fig.add_subplot(sub[1,:]);ax.axis("off");ax.legend(handles=handles,loc="upper center",ncol=3,frameon=False,title="Sensitivity / specificity",title_fontsize=8)
+
+    cell=outer[2,0]
+    heading(fig,cell,"E","Latent-effect coverage and exclusion",r"True $\delta=0.50$; sensitivity 0.80; specificity 0.85")
+    content=cell.subgridspec(2,1,height_ratios=(.13,1),hspace=0)[1]
+    sub=content.subgridspec(1,2,wspace=.37)
+    ax1,ax2=fig.add_subplot(sub[0]),fig.add_subplot(sub[1])
+    for ax in (ax1,ax2):tidy(ax);ax.set_xticks([100,466,1000]);ax.set_xlabel("N per cohort")
+    for cohort,colour in COHORT_COLOURS.items():
+        d=core[(core.cohort==cohort)&(core.se==.8)&(core.sp==.85)&(core.effect=="dense05")]
+        g=d.groupby("n").coverage_95_target.agg(["mean","min","max"]).loc[list(NS)]*100
+        ax1.plot(NS,g['mean'],color=colour,marker="o",ms=3,lw=1.3,label=cohort.replace("MYLC","MY-LC"))
+        ax1.fill_between(NS,g['min'],g['max'],color=colour,alpha=.13)
+        for metric,style,marker in (("exclusion_030","-","o"),("equivalence_030","--","s")):
+            gg=d.groupby("n")[metric].mean().loc[list(NS)]*100
+            ax2.plot(NS,gg,color=colour,ls=style,marker=marker,ms=3,lw=1.3)
+    ax1.set_ylim(0,100);ax1.axhline(95,color="#8E9798",ls=":",lw=.7);ax1.set_ylabel("Latent-effect coverage (%)");ax1.legend(frameon=False,loc="upper right")
+    ax1.set_title("95% interval coverage")
+    ax2.set_ylim(0,20);ax2.set_ylabel("Incorrect scientific conclusion (%)");ax2.set_title("Exclusion / equivalence")
+    ax2.text(.03,.97,"Solid: exclude +0.30 SD\nDashed: TOST within ±0.30 SD",transform=ax2.transAxes,ha="left",va="top",fontsize=7)
+
+    cell=outer[2,1]
+    heading(fig,cell,"F","Conditional recruitment for 80% discovery power",r"$\delta=0.30$; six-protein BH correction; calibrated joint model")
+    content=cell.subgridspec(2,1,height_ratios=(.13,1),hspace=0)[1]
+    ax=fig.add_subplot(content);tidy(ax)
+    profiles=((1.,1.),(.8,.95),(.8,.85));yticks=[]
+    for ci,cohort in enumerate(("INCOV","MYLC")):
+        for pi,(se,sp) in enumerate(profiles):
+            row=5-ci*3-pi;yticks.append((row,f"{cohort.replace('MYLC','MY-LC')}  {se:.2f}/{sp:.2f}"))
+            d=design[(design.cohort==cohort)&(design.se==se)&(design.sp==sp)&(design.effect=="dense03")&(design.objective=="discovery_bh6")]
+            values=pd.to_numeric(d.estimated_N80,errors="coerce").dropna().to_numpy();colour=COHORT_COLOURS[cohort]
+            lo=pd.to_numeric(d.N_below_80_MC95,errors="coerce").min()
+            hi=pd.to_numeric(d.N_above_80_MC95,errors="coerce").max()
+            if np.isfinite(lo) and np.isfinite(hi):
+                ax.plot([lo,hi],[row,row],color="#CBD0D0",lw=6,alpha=.65,solid_capstyle="butt",zorder=1)
+            if len(values):
+                ax.plot([values.min(),values.max()],[row,row],color=colour,lw=1.3)
+                ax.scatter(values,np.full(len(values),row),s=25,facecolor=colour,edgecolor="white",lw=.5,zorder=4)
+                ax.text(values.max()*1.08,row,f"{int(values.min())}–{int(values.max())}",va="center",fontsize=8)
+    ax.set_yticks([x[0] for x in yticks],[x[1] for x in yticks]);ax.set_ylim(-.6,5.7)
+    ax.set_xscale("log");ax.set_xlim(100,5000);ax.set_xticks([100,250,500,1000,2500,5000],labels=["100","250","500","1000","2500","5000"])
+    ax.axvline(466,color="#8E9798",ls="--",lw=.8);ax.text(466,5.45,"466",ha="center",va="bottom",fontsize=7,color="#555D5F")
+    ax.set_xlabel("Evaluable N per cohort; range across six proteins")
+    source_data.append(design.assign(panel="F"))
+    panel_data=panels[(panels.extension=="main")&(panels.method=="a_joint")]
+    pd.concat([core.assign(panel="C_D_E",record_type="protein"),panel_data.assign(panel="C_D",record_type="panel")],ignore_index=True).to_csv(OUT/"Figure_3_source_data.csv",index=False)
+    pd.concat(source_data,ignore_index=True).to_csv(OUT/"Figure_3_calibration_and_design.csv",index=False)
+    fig.savefig(OUT/"Figure_3.pdf",dpi=600)
+    fig.savefig(OUT/"Figure_3.png",dpi=300)
+    fig.savefig(OUT/"Figure_3.tiff",dpi=600,pil_kwargs={"compression":"tiff_lzw"})
+    fig.savefig(OUT/"Figure_3.svg")
+    plt.close(fig)
+
+
+
+FIGURE_LEGENDS = {1: 'Protein associations and interval compatibility. (A) Participant flow into the 105 INCOV and 97 MY-LC model populations. (B) Assessment timing by recorded cough; marks show medians and interquartile ranges. Timing begins at documented symptom onset and does not establish continuous cough duration. (C) Adjusted protein differences with HC3 t-based 95% confidence intervals; outcomes were standardised within complete-model populations. Models include age, sex, BMI, log follow-up and acute hospitalisation. BH correction covers twelve comparisons. (D, E) Exploratory assays in INCOV (448) and MY-LC (138); dashed lines indicate nominal P=0.05. No assay met its within-cohort BH threshold. (F) Nominal and Bonferroni family-wise intervals containing positive reference values of 0.2, 0.5 and 0.8 SD. These references describe precision, not clinical importance.', 2: 'Transcriptomic programmes and donor-level sensitivity. (A) Directional ROAST q values for ten programmes in five contrasts. Each contrast has a separate ten-test family; outlined cells indicate q<0.05. (B) Six paired donors’ programme-mean changes between 3–6 and 12–18 months; diamonds indicate means. (C) Longitudinal donor-omission results; the four programmes retained significance in 2/6, 3/6, 2/6 and 1/6 models. (D) Primary ROAST and unweighted exact sign-flip q values; all 64 sign patterns were enumerated. (E) Directional and mixed-direction TGF-β results in the radiological comparison, before and after composition adjustment or deconvolution-error restriction. (F) Age and sex of eleven nasal pseudobulk donors. PRA denotes pulmonary radiological abnormalities; RPRA denotes respiratory PASC with radiographic abnormalities. The two GSE261777 contrasts share a source cohort. Full numerical results appear in Tables S7–S9.', 3: 'Empirically calibrated ADEMP simulations. (A) Residual variance ratios and covariate R²; phenotype R² uses the 25% calibration distribution. (B) Four preprocessing methods at N=466 and δ=0.30 SD in the source-interaction extension; H denotes the source interaction. Points represent six proteins; black marks indicate scale-specific targets. (C) HC3 coverage, BH false discovery rate and sparse-alternative discovery with perfect phenotyping. Error bars show ±1.96 Monte Carlo standard errors; shaded ranges span proteins. (D) Mean BH discovery for six +0.30-SD effects by phenotype sensitivity/specificity. (E) Latent-effect coverage and erroneous exclusion/equivalence for true +0.50-SD effects at Se/Sp=0.80/0.85. (F) Conditional per-protein N80 for six +0.30-SD effects; grey spans show evaluated pointwise Monte Carlo brackets. The dashed line marks the independent-group reference N=466. Means across proteins preserve within-repetition dependence; ranges are not confidence intervals. All diagnostic-error and interaction parameters are scenarios.'}
 
 def main():
-    font = setup()
-    for draw in (figure_1, figure_2, figure_3, figure_4, figure_5, figure_s1):
-        draw()
-    files = sorted((p for p in OUT.iterdir() if p.suffix in {'.tiff', '.pdf', '.svg'}))
-    metadata = dict(font_family='Times New Roman', font_sha256=hashlib.sha256(Path(font).read_bytes()).hexdigest(), dpi=600, files=[dict(file=p.as_posix(), sha256=hashlib.sha256(p.read_bytes()).hexdigest()) for p in files])
-    (OUT / 'figure_manifest.json').write_text(json.dumps(metadata, indent=2) + '\n', encoding='utf-8')
-    print('Six figures exported.')
+    setup()
+    figure_1()
+    figure_2()
+    figure_s1()
+    figure_s2()
+    figure_3()
+    for number, legend in FIGURE_LEGENDS.items():
+        (OUT / f"Figure_{number}_legend.txt").write_text(legend + "\n", encoding="utf-8")
+
+
 if __name__ == '__main__':
     main()
