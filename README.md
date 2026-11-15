@@ -1,6 +1,6 @@
 # Post-COVID symptom-specific biomarker analyses
 
-Code and numerical results for *Statistical precision, phenotype misclassification, and preprocessing in symptom-specific post-COVID biomarker studies: a multi-cohort reanalysis and simulation study of persistent cough*.
+Code and numerical results for *Precision, Phenotype Misclassification, and Preprocessing in Post–COVID-19 Cough Biomarker Studies*.
 
 Version: 2.0.0.
 
@@ -12,7 +12,7 @@ Version: 2.0.0.
 | `02_prospective_power_tost.py` | Independent-group detection, exclusion, exact TOST and interval-width assurance |
 | `03_airway_transcriptomics.R` | Five donor-level transcriptomic contrasts, ROAST, donor omissions and exact score tests |
 | `04_ademp_simulation.py` | Empirical calibration, ADEMP simulation, implementation validation and conditional sample-size estimation |
-| `05_generate_figures.py` | Main Figures 1–3 and supplementary Figures S1–S2 |
+| `05_generate_figures.py` | Main Figures 1–3 and supplementary eFigures 1–2 |
 
 `data/raw/proteomics/` contains the released source workbooks. `data/airway/` contains the transcript quantifications, count matrices, donor metadata and gene annotations used for modelling. `data/ademp_calibration.json` contains the empirical simulation parameters. `data/Table_S1_phenotype_availability.csv` records the eleven-source phenotype assessment. Source attribution and input checksums are in `data/input_sources.tsv` and `data/input_manifest.tsv`.
 
@@ -20,7 +20,7 @@ The distributed entry points for transcriptomics are Salmon quantifications and 
 
 ## Environment
 
-The analyses use Python 3.12 with NumPy, pandas, SciPy, openpyxl, Matplotlib, Pillow and threadpoolctl. Tested versions are recorded in `requirements.txt` and the numerical execution records. R analyses use R 4.4.3, edgeR 4.4.0, limma 3.62.1, tximport 1.34.0, statmod 1.5.2 and jsonlite 2.0.0. The R script checks package availability and records `sessionInfo()`; it does not reject compatible patch versions.
+The analyses use Python 3.12 with NumPy, pandas, SciPy, openpyxl, Matplotlib, Pillow and threadpoolctl. Tested versions are recorded in `requirements.txt` and the numerical execution records. R analyses use R 4.4.3, edgeR 4.4.0, limma 3.62.1, tximport 1.34.0, statmod 1.5.2 and jsonlite 2.0.0. The R script checks package availability and records `sessionInfo()`. Archived environment reports retain library names and versions without machine-specific directory prefixes.
 
 ```bash
 python -m venv .venv
@@ -97,26 +97,26 @@ Every probability and estimator summary includes a Monte Carlo standard error. S
 
 | Location | Manuscript item |
 |---|---|
-| `data/Table_S1_phenotype_availability.csv` | Table S1; source selection |
+| `data/Table_S1_phenotype_availability.csv` | eTable 1; source selection |
 | `output/tables/proteomics/Table1_numeric_long.csv` | Table 1 |
-| `output/tables/proteomics/primary_panel_results.csv` | Figure 1; Table S2 |
-| `output/tables/proteomics/sensitivity_results.csv` | Table S3 |
-| `output/tables/proteomics/leave_one_out_results.csv`, `loo_summary.csv` | Table S4 |
-| `output/tables/proteomics/exploratory_assay_results.csv` | Figure 1; Table S5 |
-| `output/tables/proteomics/primary_precision.csv`, `effect_bound_compatibility.csv` | Figure 1; Table S6 |
-| `output/tables/airway/primary_programmes.tsv` | Figure 2; Table S7 |
-| `output/tables/airway/longitudinal/` | Figure 2; Table S8 |
-| `output/tables/airway/` context directories | Table S9 and complete transcriptomic sensitivities |
-| `data/processed/proteomics/primary_assay_map.csv` | Table S10 |
-| `output/tables/prospective/selected_design_scenarios.csv`, `prospective_design_all_scenarios.csv` | Table S11; analytical part of Table 2 |
-| `output/tables/prospective/prospective_CI_width_assurance.csv`, `N100_detection_power.csv` | Table S12 |
-| `output/ademp/empirical_calibration.csv`, `*_residual_correlation.csv` | Figure 3A; Table S13 |
-| `output/ademp/design.json`, `output/design/conditional_design_summary.json` | Table S14 |
-| `output/ademp/simulation_estimates.csv`, `simulation_panels.csv`, `simulation_bh12.csv` | Figure 3; Tables S15–S17 |
-| `output/ademp/key_findings.csv` | Main simulation results; Table S16 |
-| `output/ademp/paired_method_comparisons.csv`, `misclassification_projection.csv` | Table S17 |
-| `output/design/Table_2_conditional_design.csv`, `Table_2_design_ranges.csv` | Table 2; Figure 3F; Table S18 |
-| `output/ademp/validation.json`, `computational_checks.json` | Table S19 |
+| `output/tables/proteomics/primary_panel_results.csv` | Figure 1; eTable 2 |
+| `output/tables/proteomics/sensitivity_results.csv` | eTable 3 |
+| `output/tables/proteomics/leave_one_out_results.csv`, `loo_summary.csv` | eTable 4 |
+| `output/tables/proteomics/exploratory_assay_results.csv` | Figure 1; eTable 5 |
+| `output/tables/proteomics/primary_precision.csv`, `effect_bound_compatibility.csv` | Figure 1; eTable 6 |
+| `output/tables/airway/primary_programmes.tsv` | Figure 2; eTable 7 |
+| `output/tables/airway/longitudinal/` | Figure 2; eTable 8 |
+| `output/tables/airway/` context directories | eTable 9 and complete transcriptomic sensitivities |
+| `data/processed/proteomics/primary_assay_map.csv` | eTable 10 |
+| `output/tables/prospective/selected_design_scenarios.csv`, `prospective_design_all_scenarios.csv` | eTable 11; analytical part of Table 2 |
+| `output/tables/prospective/prospective_CI_width_assurance.csv`, `N100_detection_power.csv` | eTable 12 |
+| `output/ademp/empirical_calibration.csv`, `*_residual_correlation.csv` | Figure 3A; eTable 13 |
+| `output/ademp/design.json`, `output/design/conditional_design_summary.json` | eTable 14 |
+| `output/ademp/simulation_estimates.csv`, `simulation_panels.csv`, `simulation_bh12.csv` | Figure 3; eTables 15–17 |
+| `output/ademp/key_findings.csv` | Main simulation results; eTable 16 |
+| `output/ademp/paired_method_comparisons.csv`, `misclassification_projection.csv` | eTable 17 |
+| `output/design/Table_2_conditional_design.csv`, `Table_2_design_ranges.csv` | Table 2; Figure 3F; eTable 18 |
+| `output/ademp/validation.json`, `computational_checks.json` | eTable 19 |
 | `output/figures/Figure_1`–`Figure_3` | Main figures |
 | `output/figures/Figure_S1`, `Figure_S2` | Supplementary figures |
 | `output/supplementary_table_index.csv` | Complete supplementary table-to-file index |
