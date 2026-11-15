@@ -1,7 +1,9 @@
 # Archived code and input data
 
-The complete, citable version 1.0.0 of the analysis code, README, checksums and reproduction input data is archived at Zenodo:
+Version 2.0.0, including the analysis scripts, input data, numerical results, tests, README and checksums, is archived at Zenodo:
 
-https://doi.org/10.5281/zenodo.24094725
+https://doi.org/10.5281/zenodo.24246182
 
-Download `Reproduction_Input_Data.tar.gz` from the Zenodo record and place it in the repository root, then follow the extraction and execution instructions in `README.md`. The Zenodo deposit also contains the matching `SHA256SUMS.txt`.
+Download `Repository_v2.zip`, extract it, and run the analyses from the resulting `Repository_v2` directory as described in its `README.md`. The archive SHA-256 is `28fe322c25c2e5525c6fd7b34884e484541730ce51f8933d747767e466c22202`. Source data retain their original attribution and reuse conditions.
+
+The previous version remains available at https://doi.org/10.5281/zenodo.24094725.

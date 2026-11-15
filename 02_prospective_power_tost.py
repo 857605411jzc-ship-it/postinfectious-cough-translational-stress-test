@@ -170,7 +170,7 @@ def prospective_tables():
     ]
     return {
         "prospective_design_all_scenarios": table,
-        "Table_S13_selected_scenarios": selected,
+        "selected_design_scenarios": selected,
         "prospective_CI_width_assurance": pd.DataFrame(precision),
         "prospective_design_curves": pd.DataFrame(curves),
         "N100_detection_power": pd.DataFrame(benchmarks),
